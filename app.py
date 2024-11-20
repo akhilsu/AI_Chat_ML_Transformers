@@ -1,50 +1,87 @@
 import streamlit as st
-from transformers import pipeline
+import os
+from transformers import AutoModelForCausalLM, AutoTokenizer, TextIteratorStreamer
+from threading import Thread
 
-# Initialize the text generation pipeline with GPT-2
-model_name = "gpt2"
-text_generator = pipeline("text-generation", model=model_name)
+# Set an environment variable
+HF_TOKEN = os.environ.get("HF_TOKEN", None)
 
-# Streamlit app setup
-st.set_page_config(
-    page_title="Chatbot",
-    page_icon="🤖",
-    layout="wide",
-    initial_sidebar_state="expanded",
-)
+# Load the tokenizer and model
+tokenizer = AutoTokenizer.from_pretrained("meta-llama/Llama-3.2-1B-Instruct")
+model = AutoModelForCausalLM.from_pretrained("meta-llama/Llama-3.2-1B-Instruct", device_map="auto")
+terminators = [
+    tokenizer.eos_token_id,
+    tokenizer.convert_tokens_to_ids("<|eot_id|>")
+]
 
-# Sidebar
-st.sidebar.title("Chatbot Settings")
-max_length = st.sidebar.slider("Response Length", min_value=50, max_value=200, value=100)
-st.sidebar.markdown("Adjust the response length for the chatbot.")
+def generate_response(message: str, history: list, temperature: float, max_new_tokens: int) -> str:
+    """
+    Generate a streaming response using the llama3-8b model.
+    Args:
+        message (str): The input message.
+        history (list): The conversation history.
+        temperature (float): The temperature for generating the response.
+        max_new_tokens (int): The maximum number of new tokens to generate.
+    Returns:
+        str: The generated response.
+    """
+    conversation = []
+    for user, assistant in history:
+        conversation.extend([{"role": "user", "content": user}, {"role": "assistant", "content": assistant}])
+    conversation.append({"role": "user", "content": message})
 
-# Main page
-st.title("🤖 Chat with AI")
-st.markdown("Welcome to the interactive chatbot. Start a conversation by typing below:")
+    input_ids = tokenizer.apply_chat_template(conversation, return_tensors="pt").to(model.device)
+    streamer = TextIteratorStreamer(tokenizer, timeout=10.0, skip_prompt=True, skip_special_tokens=True)
 
-# Chat container
-if "conversation" not in st.session_state:
-    st.session_state.conversation = []
+    generate_kwargs = dict(
+        input_ids=input_ids,
+        streamer=streamer,
+        max_new_tokens=max_new_tokens,
+        do_sample=True,
+        temperature=temperature,
+        eos_token_id=terminators,
+    )
+    if temperature == 0:
+        generate_kwargs['do_sample'] = False
 
-def generate_response(user_input):
-    responses = text_generator(user_input, max_length=max_length, num_return_sequences=1)
-    return responses[0]['generated_text']
+    t = Thread(target=model.generate, kwargs=generate_kwargs)
+    t.start()
 
-def add_to_conversation(user_input, bot_response):
-    st.session_state.conversation.append({"user": user_input, "bot": bot_response})
+    outputs = []
+    for text in streamer:
+        outputs.append(text)
+        yield "".join(outputs)
+
+# Streamlit interface
+st.title("Meta Llama3 8B Chat")
+st.markdown("This app demonstrates the instruction-tuned model Meta Llama3 8B.")
+
+# Input elements
+temperature = st.slider("Temperature", 0.0, 1.0, 0.95)
+max_new_tokens = st.slider("Max new tokens", 128, 4096, 512)
+
+# Chat history
+if 'history' not in st.session_state:
+    st.session_state.history = []
 
 # User input
-user_input = st.text_input("You:", "")
-if st.button("Send") and user_input:
-    bot_response = generate_response(user_input)
-    add_to_conversation(user_input, bot_response)
-    user_input = ""  # Clear the input field
+user_input = st.text_input("Ask me anything...")
 
-# Display conversation
-for chat in st.session_state.conversation:
-    st.markdown(f"**You:** {chat['user']}")
-    st.markdown(f"**Bot:** {chat['bot']}")
+if st.button("Send"):
+    if user_input:
+        st.session_state.history.append((user_input, ""))
 
-# Footer
-st.markdown("---")
-st.markdown("Developed by Akhil Sudhakaran")
+        # Generate response
+        with st.spinner("Generating response..."):
+            response = ""
+            for text in generate_response(user_input, st.session_state.history, temperature, max_new_tokens):
+                response += text
+                st.text_area("Response", response, height=200)
+        
+        # Append the generated response to history
+        st.session_state.history[-1] = (user_input, response)
+
+# Display chat history
+for user, assistant in st.session_state.history:
+    st.write(f"**User:** {user}")
+    st.write(f"**Assistant:** {assistant}")
