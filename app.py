@@ -47,5 +47,4 @@ for chat in st.session_state.conversation:
 
 # Footer
 st.markdown("---")
-st.markdown("Powered by Hugging Face Transformers")
 st.markdown("Developed by Akhil Sudhakaran")
