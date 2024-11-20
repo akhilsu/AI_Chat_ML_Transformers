@@ -2,8 +2,8 @@ import streamlit as st
 from transformers import pipeline
 
 # Initialize the text generation pipeline with GPT-2
-model_name = "gpt2"
-text_generator = pipeline("text-generation", model=model_name)
+model_id = "meta-llama/Meta-Llama-3-8B"
+text_generator = pipeline("text-generation", model=model_id, model_kwargs={"torch_dtype": torch.bfloat16}, device_map="auto")
 
 # Streamlit app setup
 st.set_page_config(
