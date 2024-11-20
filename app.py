@@ -27,7 +27,13 @@ if "conversation" not in st.session_state:
     st.session_state.conversation = []
 
 def generate_response(user_input):
-    responses = text_generator(user_input, max_length=max_length, num_return_sequences=1)
+    responses = text_generator(
+        user_input, 
+        max_length=max_length, 
+        num_return_sequences=1,
+        truncation=True,
+        padding=True
+    )
     return responses[0]['generated_text']
 
 def add_to_conversation(user_input, bot_response):
