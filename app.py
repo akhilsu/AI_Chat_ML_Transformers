@@ -2,7 +2,7 @@ import streamlit as st
 from transformers import pipeline
 
 # Initialize the text generation pipeline with GPT-2
-model_name = "gpt2"
+model_name = "meta-llama/Meta-Llama-3-8B"
 text_generator = pipeline("text-generation", model=model_name)
 
 # Streamlit app setup
