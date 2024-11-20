@@ -1,8 +1,8 @@
 import streamlit as st
 from transformers import pipeline
 
-# Initialize the text generation pipeline with GPT-2
-model_name = "gpt2"
+# Initialize the text generation pipeline with GPT-Neo
+model_name = "EleutherAI/gpt-neo-125M"  # A smaller version of GPT-Neo for testing
 text_generator = pipeline("text-generation", model=model_name)
 
 # Streamlit app setup
@@ -38,7 +38,6 @@ user_input = st.text_input("You:", "")
 if st.button("Send") and user_input:
     bot_response = generate_response(user_input)
     add_to_conversation(user_input, bot_response)
-    user_input = ""  # Clear the input field
 
 # Display conversation
 for chat in st.session_state.conversation:
