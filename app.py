@@ -4,7 +4,7 @@ import torch
 import os
 
 # Retrieve the Hugging Face token from environment variables
-HF_TOKEN = os.environ.get("GColab", None)
+HF_TOKEN = os.environ.get("HF_TOKEN", None)
 
 # Ensure the token is provided
 if HF_TOKEN is None:
